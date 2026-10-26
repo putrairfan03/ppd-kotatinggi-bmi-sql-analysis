@@ -1,0 +1,50 @@
+-- ==============================================================
+-- Projek: Student BMI & Health Risk Surveillance (PPD Kota Tinggi)
+-- Fail  : analysis_queries.sql
+-- Enjin : SQLite
+-- ==============================================================
+
+-- Kueri A: Jurang Obesiti Mengikut Jantina (Conditional Aggregation)
+SELECT 
+    jantina,
+    COUNT(*) AS jumlah_murid,
+    SUM(CASE WHEN status_bmi = 'OBES' THEN 1 ELSE 0 END) AS bilangan_obes,
+    ROUND(SUM(CASE WHEN status_bmi = 'OBES' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS peratus_obes,
+    ROUND(SUM(CASE WHEN status_bmi IN ('BERLEBIHAN BERAT BADAN', 'OBES') THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS peratus_risiko_tinggi
+FROM bmi_ppd_kotatinggi
+GROUP BY jantina;
+
+
+-- Kueri B: Analisis Sosio-Geografi (Bandar vs Luar Bandar)
+SELECT 
+    lokasi,
+    COUNT(*) AS total_murid,
+    ROUND(SUM(CASE WHEN status_bmi = 'KURUS' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS peratus_kurus,
+    ROUND(SUM(CASE WHEN status_bmi = 'BERAT BADAN NORMAL' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS peratus_normal,
+    ROUND(SUM(CASE WHEN status_bmi IN ('BERLEBIHAN BERAT BADAN', 'OBES') THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS peratus_berat_berlebihan_obes
+FROM bmi_ppd_kotatinggi
+GROUP BY lokasi;
+
+
+-- Kueri C: Top 5 Sekolah Berisiko Obesiti Tertinggi (Window Function: DENSE_RANK)
+WITH ProfilSekolah AS (
+    SELECT 
+        kod_sekolah,
+        nama_sekolah,
+        lokasi,
+        COUNT(*) AS total_murid,
+        SUM(CASE WHEN status_bmi = 'OBES' THEN 1 ELSE 0 END) AS bilangan_obes,
+        ROUND(SUM(CASE WHEN status_bmi = 'OBES' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS peratus_obes
+    FROM bmi_ppd_kotatinggi
+    GROUP BY kod_sekolah, nama_sekolah, lokasi
+    HAVING COUNT(*) >= 50
+)
+SELECT 
+    nama_sekolah,
+    lokasi,
+    total_murid,
+    bilangan_obes,
+    peratus_obes,
+    DENSE_RANK() OVER (ORDER BY peratus_obes DESC) AS ranking_keutamaan
+FROM ProfilSekolah
+LIMIT 5;
